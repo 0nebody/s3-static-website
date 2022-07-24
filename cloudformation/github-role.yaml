@@ -1,0 +1,48 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'GitHub Website Deployment Role'
+
+Parameters:
+  WebsiteStackName:
+    Description: 'Name of stack creating website and deployment policy'
+    Type: String
+
+  GitHubOrg:
+    Description: 'Name of GitHub organisation'
+    Type: String
+
+  OIDCProviderArn:
+    Description: 'ARN for the GitHub OIDC Provider'
+    Type: String
+
+  RepositoryName:
+    Description: 'Name of Git repository'
+    Type: String
+
+Resources:
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRoleWithWebIdentity
+            Principal:
+              Federated: !Ref OIDCProviderArn
+            Condition:
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${RepositoryName}:*
+      Path: /
+      ManagedPolicyArns:
+        - { 'Fn::ImportValue': !Sub '${WebsiteStackName}-deployment-policy-arn' }
+
+Outputs:
+  StackName:
+    Description: 'Stack name'
+    Value: !Sub '${AWS::StackName}'
+
+  RoleArn:
+    Description: 'ARN of GitHub actions deployment role'
+    Value: !GetAtt Role.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-role-arn'

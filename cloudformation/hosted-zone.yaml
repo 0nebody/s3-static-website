@@ -1,0 +1,41 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Route53 Hosted Zone'
+
+Parameters:
+  Domain:
+    Type: String
+    Description: 'Fully qualified domain name'
+
+  Comment:
+    Type: String
+    Description: 'Optional: comment to include about the hosted zone'
+    Default: ''
+
+Conditions:
+  HasComment: !Not [!Equals [!Ref Comment, '']]
+
+Resources:
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      HostedZoneConfig:
+        Comment: !If [HasComment, !Ref Comment, !Ref AWS::NoValue]
+      Name: !Ref Domain
+
+Outputs:
+  StackName:
+    Description: 'Stack name'
+    Value: !Sub '${AWS::StackName}'
+
+  HostedZoneName:
+    Description: 'Hosted zone fully qualified domain name'
+    Value: !Ref Domain
+    Export:
+      Name: !Sub '${AWS::StackName}-hosted-zone-name'
+
+  HostedZoneID:
+    Description: 'The ID that Amazon Route 53 assigned to the hosted zone when you created it'
+    Value: !Ref HostedZone
+    Export:
+      Name: !Sub '${AWS::StackName}-hosted-zone-id'

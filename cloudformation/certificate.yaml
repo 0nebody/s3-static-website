@@ -1,0 +1,46 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ACM certificate'
+
+Parameters:
+  DomainName:
+    Description: 'Domain used to create DNS entry in hosted zone'
+    Type: String
+
+  HostedZoneId:
+    Description: 'Hosted zone ID'
+    Type: String
+
+  SubjectAlternativeNames:
+    Description: 'Optional: alternate subject domain names'
+    Type: CommaDelimitedList
+    Default: ''
+
+Conditions:
+  HasSubjectAlternativeNames: !Not [!Equals [!Join ['', !Ref SubjectAlternativeNames], '']]
+
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      CertificateTransparencyLoggingPreference: ENABLED
+      DomainName: !Ref DomainName
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+      SubjectAlternativeNames: !If
+        - HasSubjectAlternativeNames
+        - !Ref SubjectAlternativeNames
+        - !Ref AWS::NoValue
+      ValidationMethod: DNS
+
+Outputs:
+  StackName:
+    Description: 'Stack name'
+    Value: !Sub '${AWS::StackName}'
+
+  CertificateArn:
+    Description: 'Certificate ARN'
+    Value: !Ref Certificate
+    Export:
+      Name: !Sub '${AWS::StackName}-certificate-arn'
