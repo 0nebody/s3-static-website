@@ -149,6 +149,7 @@ Resources:
                 LambdaFunctionARN: !Ref LambdaFunctionArn
               - !Ref 'AWS::NoValue'
           OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03
           TargetOriginId: s3origin
           ViewerProtocolPolicy: 'redirect-to-https'
         DefaultRootObject: 'index.html'
