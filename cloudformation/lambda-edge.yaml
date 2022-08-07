@@ -1,32 +1,29 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'Request URI Rewriting'
+Transform: AWS::Serverless-2016-10-31
 
 Resources:
   LambdaFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
       Description: 'Lambda@Edge request URI rewriting'
-      Code:
-        ZipFile: |
-          'use strict';
-          exports.handler = (event, context, callback) => {
-              var request = event.Records[0].cf.request;
-              var olduri = request.uri;
-              var newuri = olduri.replace(/\/$/, '\/index.html');
-              request.uri = newuri;
-              return callback(null, request);
-          };
+      AutoPublishAlias: live
       Handler: index.handler
       MemorySize: 128
+      InlineCode: |
+        'use strict';
+        exports.handler = (event, context, callback) => {
+          var request = event.Records[0].cf.request;
+          var olduri = request.uri;
+          var newuri = olduri.replace(/\/$/, '\/index.html');
+          request.uri = newuri;
+          return callback(null, request);
+        };
       Role: !GetAtt LambdaFunctionExecutionRole.Arn
       Runtime: nodejs16.x
-
-  LambdaFunctionVersion:
-    Type: AWS::Lambda::Version
-    Properties:
-      FunctionName: !Ref LambdaFunction
-      Description: 'URI rewriting with Lambda@Edge'
+      Timeout: 1
+      VersionDescription: 'URI rewriting with Lambda@Edge'
 
   LambdaFunctionExecutionRole:
     Type: AWS::IAM::Role
@@ -61,8 +58,3 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-function-arn'
 
-  LambdaFunctionVersionArn:
-    Description: 'Lambda function version ARN'
-    Value: !Ref LambdaFunctionVersion
-    Export:
-      Name: !Sub '${AWS::StackName}-function-version'
