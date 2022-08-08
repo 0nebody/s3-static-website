@@ -25,6 +25,17 @@ function get_stack_value() {
         --output text
 }
 
+function get_function_version_arn() {
+    local stack_name="$1"
+    local region="$2"
+
+    local arn="$(get_stack_value ${stack_name} LambdaFunctionArn ${region})"
+    local name="$(get_stack_value ${stack_name} LambdaFunctionName ${region})"
+    local version="$(aws lambda get-alias --name Live --function-name ${name} --region ${region} | jq -r .FunctionVersion)"
+
+    echo "${arn}:${version}"
+}
+
 # create acm certificate
 # hard coded to us-east-1 as it will be used by cloudfront
 acm_stack_name="${stack_prefix}-certificate"
@@ -41,10 +52,20 @@ aws cloudformation deploy \
 
 # uri rewriting lambda edge function
 # hard coded to us-east-1 as it will be used by cloudfront
-lambda_stack_name="${stack_prefix}-lambda-edge"
+origin_request_stack_name="${stack_prefix}-edge-origin-request"
 aws cloudformation deploy \
-    --template-file ./cloudformation/lambda-edge.yaml \
-    --stack-name "${lambda_stack_name}" \
+    --template-file ./cloudformation/edge-pretty-url.yaml \
+    --stack-name "${origin_request_stack_name}" \
+    --capabilities CAPABILITY_IAM \
+    --region us-east-1 \
+    --no-fail-on-empty-changeset
+
+# force trailing slash
+# hard coded to us-east-1 as it will be used by cloudfront
+viewer_request_stack_name="${stack_prefix}-edge-viewer-request"
+aws cloudformation deploy \
+    --template-file ./cloudformation/edge-trailing-slash.yaml \
+    --stack-name "${viewer_request_stack_name}" \
     --capabilities CAPABILITY_IAM \
     --region us-east-1 \
     --no-fail-on-empty-changeset
@@ -52,7 +73,11 @@ aws cloudformation deploy \
 # s3 static webstite stack
 website_stack_name="${stack_prefix}-website"
 certificate_arn="$(get_stack_value ${acm_stack_name} CertificateArn us-east-1)"
-function_arn="$(get_stack_value ${lambda_stack_name} LambdaFunctionVersionArn us-east-1)"
+origin_request_function_arn="$(get_function_version_arn ${origin_request_stack_name} us-east-1)"
+viewer_request_function_arn="$(get_function_version_arn ${viewer_request_stack_name} us-east-1)"
+
+echo "${viewer_request_function_arn}"
+
 aws cloudformation deploy \
     --template-file ./cloudformation/static-website.yaml \
     --stack-name "${website_stack_name}" \
@@ -61,7 +86,8 @@ aws cloudformation deploy \
         HostedZoneStackName="${stack_prefix}-hosted-zone" \
         BucketName="www.${domain_name}" \
         CertificateArn="${certificate_arn}" \
-        LambdaFunctionArn="${function_arn}" \
+	OriginRequestArn="${origin_request_function_arn}" \
+	ViewerRequestArn="${viewer_request_function_arn}" \
         SubDomainName="www." \
     --no-fail-on-empty-changeset
 
@@ -80,3 +106,4 @@ if [ -n "${repository_name}" ] && [ -n "${github_org}" ]; then
             GitHubOrg="${github_org}" \
         --no-fail-on-empty-changeset
 fi
+
