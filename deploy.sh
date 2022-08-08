@@ -75,9 +75,6 @@ website_stack_name="${stack_prefix}-website"
 certificate_arn="$(get_stack_value ${acm_stack_name} CertificateArn us-east-1)"
 origin_request_function_arn="$(get_function_version_arn ${origin_request_stack_name} us-east-1)"
 viewer_request_function_arn="$(get_function_version_arn ${viewer_request_stack_name} us-east-1)"
-
-echo "${viewer_request_function_arn}"
-
 aws cloudformation deploy \
     --template-file ./cloudformation/static-website.yaml \
     --stack-name "${website_stack_name}" \
