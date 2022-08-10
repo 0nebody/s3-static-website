@@ -1,0 +1,66 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Request URI Rewriting'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: 'Lambda@Edge request URI rewriting'
+      AutoPublishAlias: Live
+      Handler: index.handler
+      MemorySize: 128
+      InlineCode: |
+        'use strict';
+        exports.handler = (event, context, callback) => {
+          var request = event.Records[0].cf.request;
+          var olduri = request.uri;
+          var newuri = olduri.replace(/\/$/, '\/index.html');
+          request.uri = newuri;
+          return callback(null, request);
+        };
+      Role: !GetAtt LambdaFunctionExecutionRole.Arn
+      Runtime: nodejs16.x
+      Timeout: 1
+      VersionDescription: 'URI rewriting with Lambda@Edge'
+
+  LambdaFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - edgelambda.amazonaws.com
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+Outputs:
+  StackName:
+    Description: 'Stack name'
+    Value: !Sub '${AWS::StackName}'
+
+  LambdaFunctionName:
+    Description: 'Lambda function name'
+    Value: !Ref LambdaFunction
+    Export:
+      Name: !Sub '${AWS::StackName}-function-name'
+
+  LambdaFunctionArn:
+    Description: 'Lamda function ARN'
+    Value: !GetAtt LambdaFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-function-arn'
+
+  LambdaFunctionAliasArn:
+    Description: 'Lambda Function Version ARN'
+    Value: !Ref LambdaFunctionAliasLive
+    Export:
+      Name: !Sub '${AWS::StackName}-function-alias-arn'
+

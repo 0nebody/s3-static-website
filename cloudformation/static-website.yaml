@@ -20,13 +20,31 @@ Parameters:
     Type: String
     Default: 'www.'
 
-  LambdaFunctionArn:
-    Description: 'Optional: Lambda@Edge request URI rewriting function ARN'
+  ViewerRequestArn:
+    Description: 'Optional: Lambda@Edge viewer request function ARN'
+    Type: String
+    Default: ''
+
+  ViewerResponseArn:
+    Description: 'Optional: Lambda@Edge viewer response function ARN'
+    Type: String
+    Default: ''
+
+  OriginRequestArn:
+    Description: 'Optional: Lambda@Edge origin request function ARN'
+    Type: String
+    Default: ''
+
+  OriginResponseArn:
+    Description: 'Optional: Lambda@Edge origin response function ARN'
     Type: String
     Default: ''
 
 Conditions:
-  HasLambdaEdge: !Not [!Equals [!Ref LambdaFunctionArn, '']]
+  HasViewerRequestArn: !Not [!Equals [!Ref ViewerRequestArn, '']]
+  HasViewerResponseArn: !Not [!Equals [!Ref ViewerResponseArn, '']]
+  HasOriginRequestArn: !Not [!Equals [!Ref OriginRequestArn, '']]
+  HasOriginResponseArn: !Not [!Equals [!Ref OriginResponseArn, '']]
 
 Resources:
   WebsiteBucket:
@@ -144,9 +162,24 @@ Resources:
           Compress: true
           LambdaFunctionAssociations:
             - !If
-              - HasLambdaEdge
+              - HasViewerRequestArn
+              - EventType: viewer-request
+                LambdaFunctionARN: !Ref ViewerRequestArn
+              - !Ref 'AWS::NoValue'
+            - !If
+              - HasViewerResponseArn
+              - EventType: viewer-response
+                LambdaFunctionARN: !Ref ViewerResponseArn 
+              - !Ref 'AWS::NoValue'
+            - !If
+              - HasOriginRequestArn
               - EventType: origin-request
-                LambdaFunctionARN: !Ref LambdaFunctionArn
+                LambdaFunctionARN: !Ref OriginRequestArn
+              - !Ref 'AWS::NoValue'
+            - !If
+              - HasOriginResponseArn
+              - EventType: origin-response
+                LambdaFunctionARN: !Ref OriginResponseArn
               - !Ref 'AWS::NoValue'
           OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf
           ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03
