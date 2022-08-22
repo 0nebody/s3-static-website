@@ -10,6 +10,7 @@ This project demonstrates a performant, cheap, static website using AWS services
  * ACM for SSL certificates
  * CloudFront as the CDN
  * Lambda@Edge for pretty URLs (directory indexes)
+ * Lambda@Edge for consistent trailing slashes
  * S3 for content storage
 
 ## How to use this repo
@@ -21,3 +22,65 @@ To deploy a website review the deploy.sh script. It should be called as followin
 ```shell
 ./deploy.sh website_domain optional_git_repo_name optional_git_repo_org
 ```
+
+## Code Deployment
+
+You can use the role created by the CloudFormation to deploy your website to S3 with GitHub actions. Below is an example retrieve the values and an example GitHub actions deployment.
+
+```shell
+# set stack prefix based on your domain name
+export STACK_PREFIX="$(echo mydomain.com | tr '.' '-')"
+export AWS_DEFAULT_REGION="us-east-1"
+
+# get cdn distribution id
+aws cloudformation list-exports --query "Exports[?Name=='${STACK_PREFIX}-website-distribution-id'].Value" --output text
+
+# get actions deployment role arn
+aws cloudformation list-exports --query "Exports[?Name=='${STACK_PREFIX}-website-github-role-role-arn'].Value" --output text
+
+# get s3 bucket name
+aws cloudformation list-exports --query "Exports[?Name=='${STACK_PREFIX}-website-bucket-name'].Value" --output text
+```
+
+```yaml
+---
+name: deploy-s3
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: <my-aws-region>
+      CDN_DISTRIBUTION_ID: <my-distribution-id>
+      ROLE_ARN: <my-role-arn>
+      S3_BUCKET_NAME: <my-bucket-name>
+    steps:
+      - uses: actions/checkout@v2
+      - name: set up Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 16.x
+      - name: npm install
+        run: npm install
+      - name: Build 11ty
+        run: npm run build
+      - name: configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          role-session-name: github-website-deployment
+          aws-region: ${{ env.AWS_REGION }}
+      - name: copy files s3 with the AWS CLI
+        run: |
+          aws s3 sync --delete _site "s3://${S3_BUCKET_NAME}" --cache-control max-age=86400
+      - name: invalidate cloudfront cache
+        run: |
+          aws cloudfront create-invalidation --distribution-id "${CDN_DISTRIBUTION_ID}" --paths "/*"
+```
+
